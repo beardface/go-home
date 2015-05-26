@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/emicklei/go-restful"
+	"github.com/stianeikeland/go-rpio"
 	"gopkg.in/gomail.v1"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type MailConfig struct {
@@ -24,15 +27,30 @@ type HomeConfig struct {
 }
 
 type DoorStatus struct {
-	Door string
-	Open bool
+	Door               string
+	Open               bool
+	RaspberryPiGpioPin rpio.Pin
 }
 
 var Home *HomeConfig
 var Mail *MailConfig
 
-func Init() {
+func InitGpio() {
+	if err := rpio.Open(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
+	// Unmap gpio memory when done
+	defer rpio.Close()
+
+	for door := 0; door < len(Home.Doors); door++ {
+		log.Printf("Initializing Door: %s on Pin: %d\n", Home.Doors[door].Door, Home.Doors[door].RaspberryPiGpioPin)
+		Home.Doors[door].RaspberryPiGpioPin.Input()
+	}
+}
+
+func Init() {
 	homeConfigFile, e := ioutil.ReadFile("./home.json")
 	if e != nil {
 		fmt.Printf("File error: %v\n", e)
@@ -48,6 +66,9 @@ func Init() {
 	}
 
 	json.Unmarshal(emailConfigFile, &Mail)
+
+	//TODO This is toggled off - it only works if you have a Pi Running
+	//InitGpio()
 }
 
 func SendNotification(subject string, message string) error {
@@ -62,12 +83,53 @@ func SendNotification(subject string, message string) error {
 	return err
 }
 
+func ReadDoorState(gpioPin rpio.Pin) bool {
+	//TODO Actually read the pin status from the Raspberry Pi
+	return true
+}
+
+func StartUpdateStatusJob() {
+	go func() {
+		for {
+			//Check all Doors
+			for door := 0; door < len(Home.Doors); door++ {
+				doorState := ReadDoorState(Home.Doors[door].RaspberryPiGpioPin)
+				if Home.Doors[door].Open != doorState {
+
+					Home.Doors[door].Open = doorState
+
+					state := "Closed"
+					if Home.Doors[door].Open {
+						state = "Opened"
+					}
+					at := time.Now().Format("Mon Jan _2 15:04:05 2006")
+
+					doorEventText := fmt.Sprintf("%s has %s at %s",
+						Home.Doors[door].Door,
+						state,
+						at)
+
+					log.Println(doorEventText)
+					SendNotification(doorEventText,
+						fmt.Sprintf(`<h3>Door Event Triggered</h3>
+								<ul>
+							  	<li><b>Door:</b> %s</li>
+						  		<li><b>State:</b> %s</li>
+						  		<li><b>Time:</b> %s</li>
+								</ul>
+								`, Home.Doors[door].Door, state, at))
+				}
+			}
+			time.Sleep(5000 * time.Millisecond)
+		}
+	}()
+}
+
 func main() {
 	Init()
 
 	ws := new(restful.WebService)
-	ws.
-		Path("/home").
+	ws.Path("/home").
 		Consumes(restful.MIME_JSON, restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_JSON) // you can specify this per route as well
 
@@ -80,6 +142,11 @@ func main() {
 		Operation("homeStatus"))
 
 	restful.Add(ws)
+
+	log.Println("Starting Monitoring Process")
+	StartUpdateStatusJob()
+
+	log.Println("Starting Web Server on port 8080")
 	http.ListenAndServe(":8080", nil)
 }
 
