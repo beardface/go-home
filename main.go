@@ -41,12 +41,11 @@ func InitGpio() {
 		os.Exit(1)
 	}
 
-	// Unmap gpio memory when done
-	defer rpio.Close()
 
 	for door := 0; door < len(Home.Doors); door++ {
 		log.Printf("Initializing Door: %s on Pin: %d\n", Home.Doors[door].Door, Home.Doors[door].RaspberryPiGpioPin)
 		Home.Doors[door].RaspberryPiGpioPin.Input()
+		Home.Doors[door].RaspberryPiGpioPin.PullUp()
 	}
 }
 
@@ -67,8 +66,7 @@ func Init() {
 
 	json.Unmarshal(emailConfigFile, &Mail)
 
-	//TODO This is toggled off - it only works if you have a Pi Running
-	//InitGpio()
+	InitGpio()
 }
 
 func SendNotification(subject string, message string) error {
@@ -84,12 +82,18 @@ func SendNotification(subject string, message string) error {
 }
 
 func ReadDoorState(gpioPin rpio.Pin) bool {
-	//TODO Actually read the pin status from the Raspberry Pi
-	return true
+	log.Printf("Read on Pin (%d): %d\n", gpioPin, gpioPin.Read())
+	if gpioPin.Read() == 1 {
+           return true
+        } else {
+           return false
+        }
 }
 
 func StartUpdateStatusJob() {
 	go func() {
+		// Unmap gpio memory when done
+		defer rpio.Close()
 		for {
 			//Check all Doors
 			for door := 0; door < len(Home.Doors); door++ {
@@ -143,6 +147,7 @@ func main() {
 
 	restful.Add(ws)
 
+	SendNotification("Home Monitor Has Started <eom>", "")
 	log.Println("Starting Monitoring Process")
 	StartUpdateStatusJob()
 

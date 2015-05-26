@@ -2,7 +2,7 @@
   "Doors" : [
     {
       "Door" : "Hawkins-Garage-Primary",
-      "RaspberryPiGpioPin": 10,
+      "RaspberryPiGpioPin": 18,
       "Open" : false
     }
   ]
