@@ -1,0 +1,5 @@
+{
+  "Username":"SENDER EMAIL ADDRESS",
+  "Password":"SENDER EMAIL PASSWORD",
+  "To": ["RECIPIENT EMAIL ADDRESS"]
+}
