@@ -57,7 +57,6 @@ func SendNotification(subject string, message string) error {
 	msg.SetHeader("Subject", subject)
 	msg.SetBody("text/html", message)
 
-	// Send the email to Bob
 	mailer := gomail.NewMailer(Mail.SmtpServer, Mail.Username, Mail.Password, Mail.SmtpPort)
 	err := mailer.Send(msg)
 	return err
