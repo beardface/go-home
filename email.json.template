@@ -1,4 +1,6 @@
 {
+  "SmtpServer":"smtp.gmail.com",
+  "SmtpPort": 465,
   "Username":"SENDER EMAIL ADDRESS",
   "Password":"SENDER EMAIL PASSWORD",
   "To": ["RECIPIENT EMAIL ADDRESS"]
