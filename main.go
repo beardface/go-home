@@ -41,7 +41,6 @@ func InitGpio() {
 		os.Exit(1)
 	}
 
-
 	for door := 0; door < len(Home.Doors); door++ {
 		log.Printf("Initializing Door: %s on Pin: %d\n", Home.Doors[door].Door, Home.Doors[door].RaspberryPiGpioPin)
 		Home.Doors[door].RaspberryPiGpioPin.Input()
@@ -82,12 +81,7 @@ func SendNotification(subject string, message string) error {
 }
 
 func ReadDoorState(gpioPin rpio.Pin) bool {
-	log.Printf("Read on Pin (%d): %d\n", gpioPin, gpioPin.Read())
-	if gpioPin.Read() == 1 {
-           return true
-        } else {
-           return false
-        }
+	return gpioPin.Read() == 1
 }
 
 func StartUpdateStatusJob() {
