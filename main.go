@@ -131,7 +131,7 @@ func main() {
 	ws := new(restful.WebService)
 	ws.Path("/home").
 		Consumes(restful.MIME_JSON, restful.MIME_JSON).
-		Produces(restful.MIME_JSON, restful.MIME_JSON) // you can specify this per route as well
+		Produces(restful.MIME_JSON, restful.MIME_JSON)
 
 	ws.Route(ws.GET("/status").To(homeStatus).
 		Doc("get home status").
