@@ -6,6 +6,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/stianeikeland/go-rpio"
 	"gopkg.in/gomail.v1"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,6 +31,7 @@ type DoorStatus struct {
 	Door               string
 	Open               bool
 	RaspberryPiGpioPin rpio.Pin
+	ImageURL           string
 }
 
 var Home *HomeConfig
@@ -68,12 +70,20 @@ func Init() {
 	InitGpio()
 }
 
-func SendNotification(subject string, message string) error {
+func SendNotification(subject string, message string, imgFile string) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", Mail.Username)
 	msg.SetHeader("To", strings.Join(Mail.To, ","))
 	msg.SetHeader("Subject", subject)
 	msg.SetBody("text/html", message)
+
+	if imgFile != "" {
+		f, err := gomail.OpenFile(imgFile)
+		if err != nil {
+			panic(err)
+		}
+		msg.Attach(f)
+	}
 
 	mailer := gomail.NewMailer(Mail.SmtpServer, Mail.Username, Mail.Password, Mail.SmtpPort)
 	err := mailer.Send(msg)
@@ -82,6 +92,40 @@ func SendNotification(subject string, message string) error {
 
 func ReadDoorState(gpioPin rpio.Pin) bool {
 	return gpioPin.Read() == 1
+}
+
+func downloadCameraImageToDisk(imgURL string) (string, error) {
+	fileName := "snapshot.jpg"
+
+	file, err := os.Create(fileName)
+
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	check := http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			r.URL.Opaque = r.URL.Path
+			return nil
+		},
+	}
+
+	resp, err := check.Get(imgURL)
+
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	size, err := io.Copy(file, resp.Body)
+
+	if err != nil {
+		return "", err
+	}
+
+	log.Printf("%s with %v bytes downloaded", fileName, size)
+	return fileName, nil
 }
 
 func StartUpdateStatusJob() {
@@ -108,14 +152,24 @@ func StartUpdateStatusJob() {
 						at)
 
 					log.Println(doorEventText)
+
+					imgFile := ""
+					var err error
+					if Home.Doors[door].ImageURL != "" {
+						imgFile, err = downloadCameraImageToDisk(Home.Doors[door].ImageURL)
+						if err != nil {
+							log.Println("Error calling downloadCameraImageToDisk:", err)
+						}
+					}
+
 					SendNotification(doorEventText,
 						fmt.Sprintf(`<h3>Door Event Triggered</h3>
-								<ul>
-							  	<li><b>Door:</b> %s</li>
-						  		<li><b>State:</b> %s</li>
-						  		<li><b>Time:</b> %s</li>
-								</ul>
-								`, Home.Doors[door].Door, state, at))
+<ul>
+	<li><b>Door:</b> %s</li>
+	<li><b>State:</b> %s</li>
+	<li><b>Time:</b> %s</li>
+</ul>
+`, Home.Doors[door].Door, state, at), imgFile)
 				}
 			}
 			time.Sleep(5000 * time.Millisecond)
@@ -141,7 +195,7 @@ func main() {
 
 	restful.Add(ws)
 
-	SendNotification("Home Monitor Has Started <eom>", "")
+	SendNotification("Home Monitor Has Started <eom>", "", "")
 	log.Println("Starting Monitoring Process")
 	StartUpdateStatusJob()
 
@@ -154,7 +208,7 @@ func homeStatus(req *restful.Request, resp *restful.Response) {
 }
 
 func testEmail(req *restful.Request, resp *restful.Response) {
-	err := SendNotification("Test Email From Home Monitor", "OK!")
+	err := SendNotification("Test Email From Home Monitor", "OK!", "")
 	if err == nil {
 		resp.WriteEntity("OK")
 	} else {
