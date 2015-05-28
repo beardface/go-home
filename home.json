@@ -4,7 +4,9 @@
       "Door" : "Hawkins-Garage-Primary",
       "RaspberryPiGpioPin": 18,
       "Open" : false,
-      "ImageUrl" : "http://192.168.1.102/snapshot.cgi?user=home&pwd=home&resolution=32"
+      "ImageUrl" : "http://192.168.1.102/snapshot.cgi?user=home&pwd=home&resolution=32",
+      "ImageCount" : 5,
+      "ImageDelayMs" : 1000
     }
   ]
 }
