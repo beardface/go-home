@@ -200,7 +200,10 @@ func main() {
 	StartUpdateStatusJob()
 
 	log.Println("Starting Web Server on port 8080")
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Println("Failed to start http server:", err)
+	}
 }
 
 func homeStatus(req *restful.Request, resp *restful.Response) {
